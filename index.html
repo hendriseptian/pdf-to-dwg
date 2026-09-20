@@ -1,60 +1,368 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>PDF → Editable DXF</title>
-  <link rel="stylesheet" href="style.css">
+    <meta charset="UTF-8">
+    <meta
+        name="viewport"
+        content="width=device-width, initial-scale=1.0"
+    >
+
+    <title>PDF → Editable DXF</title>
+
+    <link
+        rel="stylesheet"
+        href="style.css"
+    >
 </head>
+
 <body>
-  <main class="app">
-    <section class="card">
-      <div class="eyebrow">DRAFTER TOOLBOX</div>
-      <h1>PDF → Editable DXF</h1>
-      <p class="subtitle">Convert vector PDF drawings into editable DXF files.</p>
 
-      <div id="dropZone" class="drop-zone">
-        <div class="upload-icon">↑</div>
-        <div class="drop-title">DROP PDF HERE</div>
-        <div class="drop-or">or</div>
-        <button id="browseBtn" class="browse-btn" type="button">Browse File</button>
-        <input id="fileInput" type="file" accept=".pdf,application/pdf" hidden>
-        <div id="fileName" class="file-name"></div>
-      </div>
+    <main class="container">
 
-      <div id="sheetArea" class="sheet-area hidden">
-        <label for="pageSelect">Sheet / Page</label>
-        <select id="pageSelect"></select>
-      </div>
+        <!-- =========================
+             HEADER
+        ========================== -->
 
-      <button id="convertBtn" class="convert-btn" type="button" disabled>
-        CONVERT TO DXF
-      </button>
+        <header class="header">
 
-      <div id="statusArea" class="status hidden">
-        <div class="status-row">
-          <span id="statusText">Preparing...</span>
-          <span id="progressText">0%</span>
-        </div>
-        <div class="progress-track">
-          <div id="progressBar" class="progress-bar"></div>
-        </div>
-      </div>
+            <div class="eyebrow">
+                ENGINEERING TOOL
+            </div>
 
-      <a id="downloadBtn" class="download-btn hidden" href="#" download>
-        DOWNLOAD DXF
-      </a>
+            <h1>
+                PDF → Editable DXF
+            </h1>
 
-      <div id="message" class="message"></div>
+            <p class="subtitle">
+                Convert vector PDF engineering drawings
+                into editable DXF files.
+            </p>
 
-      <div class="note">
-        V1 supports vector PDFs. Scanned/image-only PDFs are not supported yet.
-      </div>
-    </section>
+        </header>
 
-    <footer>PDF2DXF V1</footer>
-  </main>
 
-  <script src="script.js"></script>
+        <!-- =========================
+             CONVERTER CARD
+        ========================== -->
+
+        <section class="card converter-card">
+
+            <div
+                id="dropZone"
+                class="drop-zone"
+            >
+
+                <div class="upload-icon">
+                    ↑
+                </div>
+
+                <h2>
+                    DROP PDF HERE
+                </h2>
+
+                <p>
+                    or
+                </p>
+
+                <button
+                    id="browseBtn"
+                    class="browse-btn"
+                    type="button"
+                >
+                    Browse File
+                </button>
+
+                <input
+                    id="fileInput"
+                    type="file"
+                    accept=".pdf,application/pdf"
+                    hidden
+                >
+
+                <div
+                    id="fileName"
+                    class="file-name"
+                >
+                </div>
+
+            </div>
+
+
+            <!-- =========================
+                 SHEET SELECTOR
+            ========================== -->
+
+            <div
+                id="sheetArea"
+                class="sheet-area hidden"
+            >
+
+                <label
+                    for="pageSelect"
+                >
+                    Select Sheet
+                </label>
+
+                <select
+                    id="pageSelect"
+                >
+                    <option value="1">
+                        Sheet 1
+                    </option>
+                </select>
+
+            </div>
+
+
+            <!-- =========================
+                 CONVERT BUTTON
+            ========================== -->
+
+            <button
+                id="convertBtn"
+                class="convert-btn"
+                type="button"
+                disabled
+            >
+                CONVERT TO DXF
+            </button>
+
+
+            <!-- =========================
+                 STATUS
+            ========================== -->
+
+            <div
+                id="statusArea"
+                class="status-area hidden"
+            >
+
+                <div class="status-header">
+
+                    <span id="statusText">
+                        Preparing...
+                    </span>
+
+                    <span id="progressText">
+                        0%
+                    </span>
+
+                </div>
+
+                <div class="progress-track">
+
+                    <div
+                        id="progressBar"
+                        class="progress-bar"
+                    ></div>
+
+                </div>
+
+            </div>
+
+
+            <!-- =========================
+                 MESSAGE
+            ========================== -->
+
+            <div
+                id="message"
+                class="message"
+            >
+            </div>
+
+
+            <!-- =========================
+                 DOWNLOAD
+            ========================== -->
+
+            <a
+                id="downloadBtn"
+                class="download-btn hidden"
+                href="#"
+            >
+                DOWNLOAD DXF
+            </a>
+
+        </section>
+
+
+        <!-- =========================
+             INFO
+        ========================== -->
+
+        <section class="info-grid">
+
+            <div class="info-card">
+
+                <div class="info-title">
+                    VECTOR PDF
+                </div>
+
+                <div class="info-text">
+                    Designed for engineering
+                    vector drawings.
+                </div>
+
+            </div>
+
+            <div class="info-card">
+
+                <div class="info-title">
+                    EDITABLE
+                </div>
+
+                <div class="info-text">
+                    Lines, polylines and text
+                    are converted into DXF.
+                </div>
+
+            </div>
+
+            <div class="info-card">
+
+                <div class="info-title">
+                    NO LOGIN
+                </div>
+
+                <div class="info-text">
+                    Upload and convert
+                    directly from your browser.
+                </div>
+
+            </div>
+
+        </section>
+
+
+        <!-- =========================
+             TEMP FILE MANAGER
+        ========================== -->
+
+        <section class="card temp-card">
+
+            <div class="temp-header">
+
+                <div>
+
+                    <div class="temp-eyebrow">
+                        SERVER STORAGE
+                    </div>
+
+                    <h2>
+                        TEMP FILE MANAGER
+                    </h2>
+
+                    <p>
+                        Temporary DXF files currently
+                        stored on the conversion server.
+                    </p>
+
+                </div>
+
+                <div class="temp-actions">
+
+                    <button
+                        id="tempRefreshBtn"
+                        class="secondary-btn"
+                        type="button"
+                    >
+                        ↻ REFRESH
+                    </button>
+
+                    <button
+                        id="tempDeleteAllBtn"
+                        class="danger-btn"
+                        type="button"
+                    >
+                        DELETE ALL
+                    </button>
+
+                </div>
+
+            </div>
+
+
+            <!-- =========================
+                 TEMP SUMMARY
+            ========================== -->
+
+            <div class="temp-summary">
+
+                <div class="temp-stat">
+
+                    <span class="temp-stat-label">
+                        FILES
+                    </span>
+
+                    <strong id="tempTotalFiles">
+                        0
+                    </strong>
+
+                </div>
+
+                <div class="temp-stat">
+
+                    <span class="temp-stat-label">
+                        STORAGE
+                    </span>
+
+                    <strong id="tempTotalSize">
+                        0 B
+                    </strong>
+
+                </div>
+
+            </div>
+
+
+            <!-- =========================
+                 TEMP MESSAGE
+            ========================== -->
+
+            <div
+                id="tempMessage"
+                class="temp-message"
+            >
+                Loading temporary files...
+            </div>
+
+
+            <!-- =========================
+                 TEMP LIST
+            ========================== -->
+
+            <div
+                id="tempList"
+                class="temp-list"
+            >
+            </div>
+
+        </section>
+
+
+        <!-- =========================
+             FOOTER
+        ========================== -->
+
+        <footer class="footer">
+
+            <span>
+                PDF → Editable DXF
+            </span>
+
+            <span>
+                Engineering Utility
+            </span>
+
+        </footer>
+
+    </main>
+
+
+    <script
+        src="script.js"
+    ></script>
+
 </body>
 </html>
