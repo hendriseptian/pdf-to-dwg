@@ -97,7 +97,7 @@ async def convert_pdf_to_dxf(
             pdf_path.unlink(missing_ok=True)
 
 
-@app.get("/pdf-info")
+@app.post("/pdf-info")
 async def pdf_info(file: UploadFile = File(...)):
     """Return page count and basic page information before conversion."""
     if not file.filename or not file.filename.lower().endswith(".pdf"):
