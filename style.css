@@ -1,249 +1,788 @@
 * {
-  box-sizing: border-box;
+    box-sizing: border-box;
+    margin: 0;
+    padding: 0;
 }
 
 :root {
-  font-family: Inter, Arial, Helvetica, sans-serif;
-  color: #e8edf5;
-  background: #0b0f14;
+    --bg: #0b0f14;
+    --card: #111720;
+    --card-2: #151c26;
+    --border: #26303d;
+    --text: #f2f5f8;
+    --muted: #8e9aaa;
+    --accent: #d9ff3f;
+    --accent-dark: #b7d62d;
+    --danger: #ff5c5c;
+    --danger-dark: #df4141;
+    --success: #54d68c;
 }
 
 body {
-  margin: 0;
-  min-height: 100vh;
-  background:
-    radial-gradient(circle at 50% 0%, #18222f 0%, #0b0f14 48%, #080b0f 100%);
+    min-height: 100vh;
+    background:
+        radial-gradient(
+            circle at top,
+            #17202c 0%,
+            #0b0f14 45%,
+            #080b0f 100%
+        );
+    color: var(--text);
+    font-family:
+        Inter,
+        -apple-system,
+        BlinkMacSystemFont,
+        "Segoe UI",
+        sans-serif;
 }
 
-.app {
-  width: min(720px, calc(100% - 32px));
-  margin: 0 auto;
-  padding: 72px 0 32px;
+button,
+input,
+select {
+    font: inherit;
 }
 
-.card {
-  padding: 38px;
-  border: 1px solid #27313d;
-  border-radius: 20px;
-  background: rgba(16, 22, 29, 0.94);
-  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.35);
+button,
+a {
+    -webkit-tap-highlight-color: transparent;
 }
 
-.eyebrow {
-  font-size: 12px;
-  font-weight: 700;
-  letter-spacing: 0.18em;
-  color: #7f8b9a;
-  text-align: center;
+
+/* =========================
+   CONTAINER
+========================= */
+
+.container {
+    width: min(920px, calc(100% - 32px));
+    margin: 0 auto;
+    padding: 60px 0 40px;
 }
 
-h1 {
-  margin: 10px 0 8px;
-  text-align: center;
-  font-size: clamp(30px, 6vw, 46px);
-  line-height: 1.05;
+
+/* =========================
+   HEADER
+========================= */
+
+.header {
+    text-align: center;
+    margin-bottom: 34px;
+}
+
+.eyebrow,
+.temp-eyebrow {
+    color: var(--accent);
+    font-size: 11px;
+    font-weight: 800;
+    letter-spacing: 2.5px;
+    margin-bottom: 12px;
+}
+
+.header h1 {
+    font-size: clamp(34px, 6vw, 58px);
+    line-height: 1;
+    font-weight: 800;
+    letter-spacing: -2px;
 }
 
 .subtitle {
-  margin: 0 auto 30px;
-  max-width: 500px;
-  text-align: center;
-  color: #8e9aaa;
-  font-size: 15px;
+    max-width: 600px;
+    margin: 18px auto 0;
+    color: var(--muted);
+    font-size: 15px;
+    line-height: 1.7;
 }
 
+
+/* =========================
+   CARD
+========================= */
+
+.card {
+    background:
+        linear-gradient(
+            145deg,
+            rgba(21, 28, 38, 0.98),
+            rgba(14, 19, 27, 0.98)
+        );
+
+    border: 1px solid var(--border);
+    border-radius: 22px;
+    box-shadow:
+        0 24px 60px rgba(0, 0, 0, 0.28);
+}
+
+
+/* =========================
+   CONVERTER
+========================= */
+
+.converter-card {
+    padding: 28px;
+}
+
+
+/* =========================
+   DROP ZONE
+========================= */
+
 .drop-zone {
-  min-height: 260px;
-  padding: 35px 20px;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  border: 2px dashed #3a4654;
-  border-radius: 16px;
-  background: #0d131a;
-  transition: 0.2s ease;
+    min-height: 290px;
+    border: 1px dashed #3a4656;
+    border-radius: 18px;
+
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+
+    text-align: center;
+
+    background:
+        rgba(7, 11, 16, 0.45);
+
+    transition:
+        border-color 0.2s ease,
+        background 0.2s ease,
+        transform 0.2s ease;
 }
 
 .drop-zone.dragover {
-  border-color: #8ea2b8;
-  background: #121a23;
-  transform: translateY(-1px);
+    border-color: var(--accent);
+    background: rgba(217, 255, 63, 0.06);
+    transform: scale(1.01);
 }
 
 .upload-icon {
-  width: 48px;
-  height: 48px;
-  margin-bottom: 16px;
-  display: grid;
-  place-items: center;
-  border-radius: 50%;
-  border: 1px solid #344151;
-  color: #b9c4d1;
-  font-size: 24px;
+    width: 58px;
+    height: 58px;
+
+    display: flex;
+    align-items: center;
+    justify-content: center;
+
+    border-radius: 16px;
+
+    background: rgba(217, 255, 63, 0.08);
+    border: 1px solid rgba(217, 255, 63, 0.18);
+
+    color: var(--accent);
+    font-size: 30px;
+    margin-bottom: 18px;
 }
 
-.drop-title {
-  font-size: 18px;
-  font-weight: 800;
-  letter-spacing: 0.08em;
+.drop-zone h2 {
+    font-size: 20px;
+    letter-spacing: 1px;
 }
 
-.drop-or {
-  margin: 9px 0;
-  color: #697686;
-  font-size: 13px;
+.drop-zone p {
+    margin: 8px 0;
+    color: var(--muted);
+    font-size: 13px;
 }
+
+
+/* =========================
+   BROWSE
+========================= */
 
 .browse-btn {
-  padding: 10px 18px;
-  border: 1px solid #3c4a5a;
-  border-radius: 9px;
-  background: #151d26;
-  color: #e8edf5;
-  cursor: pointer;
-  font-weight: 600;
+    border: 1px solid var(--border);
+    background: #1b2330;
+    color: var(--text);
+
+    padding: 10px 18px;
+    border-radius: 9px;
+
+    font-weight: 700;
+    font-size: 13px;
+
+    cursor: pointer;
+
+    transition:
+        background 0.2s ease,
+        border-color 0.2s ease;
 }
 
 .browse-btn:hover {
-  background: #1b2530;
+    background: #232d3b;
+    border-color: #3c495a;
 }
 
 .file-name {
-  margin-top: 16px;
-  max-width: 100%;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-  color: #aeb9c6;
-  font-size: 13px;
+    min-height: 20px;
+    margin-top: 16px;
+
+    color: var(--accent);
+    font-size: 12px;
+    font-weight: 600;
+
+    word-break: break-word;
 }
 
+
+/* =========================
+   SHEET SELECTOR
+========================= */
+
 .sheet-area {
-  margin-top: 18px;
+    margin-top: 20px;
 }
 
 .sheet-area label {
-  display: block;
-  margin-bottom: 8px;
-  color: #8e9aaa;
-  font-size: 13px;
+    display: block;
+
+    margin-bottom: 8px;
+
+    color: var(--muted);
+    font-size: 12px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 1px;
 }
 
 .sheet-area select {
-  width: 100%;
-  padding: 12px 14px;
-  border: 1px solid #33404f;
-  border-radius: 10px;
-  background: #0d131a;
-  color: #e8edf5;
-  outline: none;
+    width: 100%;
+
+    padding: 13px 14px;
+
+    background: #0b1017;
+    border: 1px solid var(--border);
+    border-radius: 10px;
+
+    color: var(--text);
+
+    outline: none;
 }
 
-.convert-btn,
-.download-btn {
-  width: 100%;
-  margin-top: 18px;
-  padding: 14px 18px;
-  border: 0;
-  border-radius: 10px;
-  font-size: 14px;
-  font-weight: 800;
-  letter-spacing: 0.05em;
-  text-align: center;
-  text-decoration: none;
+.sheet-area select:focus {
+    border-color: var(--accent);
 }
+
+
+/* =========================
+   CONVERT BUTTON
+========================= */
 
 .convert-btn {
-  background: #e8edf5;
-  color: #0b0f14;
-  cursor: pointer;
+    width: 100%;
+
+    margin-top: 20px;
+    padding: 16px;
+
+    border: none;
+    border-radius: 11px;
+
+    background: var(--accent);
+    color: #0a0d0a;
+
+    font-size: 13px;
+    font-weight: 900;
+    letter-spacing: 1px;
+
+    cursor: pointer;
+
+    transition:
+        background 0.2s ease,
+        transform 0.15s ease;
 }
 
 .convert-btn:hover:not(:disabled) {
-  background: #ffffff;
+    background: var(--accent-dark);
+    transform: translateY(-1px);
 }
 
 .convert-btn:disabled {
-  opacity: 0.35;
-  cursor: not-allowed;
+    opacity: 0.35;
+    cursor: not-allowed;
 }
 
-.download-btn {
-  background: #17212b;
-  border: 1px solid #3b4b5c;
-  color: #e8edf5;
+
+/* =========================
+   STATUS
+========================= */
+
+.status-area {
+    margin-top: 22px;
 }
 
-.download-btn:hover {
-  background: #1e2a36;
-}
+.status-header {
+    display: flex;
+    justify-content: space-between;
 
-.status {
-  margin-top: 22px;
-}
+    margin-bottom: 9px;
 
-.status-row {
-  display: flex;
-  justify-content: space-between;
-  margin-bottom: 8px;
-  color: #9eabb9;
-  font-size: 13px;
+    color: var(--muted);
+    font-size: 12px;
+    font-weight: 700;
 }
 
 .progress-track {
-  height: 8px;
-  overflow: hidden;
-  border-radius: 999px;
-  background: #202a35;
+    width: 100%;
+    height: 7px;
+
+    overflow: hidden;
+
+    border-radius: 99px;
+
+    background: #202936;
 }
 
 .progress-bar {
-  width: 0;
-  height: 100%;
-  border-radius: inherit;
-  background: #d8e0e8;
-  transition: width 0.25s ease;
+    width: 0;
+    height: 100%;
+
+    border-radius: inherit;
+
+    background: var(--accent);
+
+    transition: width 0.3s ease;
 }
+
+
+/* =========================
+   MESSAGE
+========================= */
 
 .message {
-  min-height: 22px;
-  margin-top: 14px;
-  text-align: center;
-  color: #aeb9c6;
-  font-size: 13px;
+    min-height: 22px;
+
+    margin-top: 15px;
+
+    text-align: center;
+
+    color: var(--muted);
+
+    font-size: 12px;
+    line-height: 1.6;
 }
 
-.note {
-  margin-top: 24px;
-  text-align: center;
-  color: #657180;
-  font-size: 12px;
-  line-height: 1.5;
+
+/* =========================
+   DOWNLOAD
+========================= */
+
+.download-btn {
+    display: block;
+
+    width: 100%;
+
+    margin-top: 10px;
+
+    padding: 15px;
+
+    border-radius: 10px;
+
+    background: #1d2733;
+    border: 1px solid #354354;
+
+    color: var(--text);
+
+    text-align: center;
+    text-decoration: none;
+
+    font-size: 13px;
+    font-weight: 800;
+    letter-spacing: 0.8px;
+
+    transition:
+        background 0.2s ease,
+        border-color 0.2s ease;
 }
 
-footer {
-  margin-top: 18px;
-  text-align: center;
-  color: #4f5b68;
-  font-size: 11px;
-  letter-spacing: 0.1em;
+.download-btn:hover {
+    background: #273342;
+    border-color: #4a5a6d;
 }
+
+
+/* =========================
+   INFO GRID
+========================= */
+
+.info-grid {
+    display: grid;
+
+    grid-template-columns:
+        repeat(3, 1fr);
+
+    gap: 12px;
+
+    margin-top: 14px;
+}
+
+.info-card {
+    padding: 18px;
+
+    background: rgba(17, 23, 32, 0.7);
+
+    border: 1px solid var(--border);
+    border-radius: 14px;
+}
+
+.info-title {
+    color: var(--accent);
+
+    font-size: 10px;
+    font-weight: 900;
+
+    letter-spacing: 1.5px;
+
+    margin-bottom: 8px;
+}
+
+.info-text {
+    color: var(--muted);
+
+    font-size: 12px;
+    line-height: 1.6;
+}
+
+
+/* =========================================================
+   TEMP FILE MANAGER
+========================================================= */
+
+.temp-card {
+    margin-top: 40px;
+    padding: 28px;
+}
+
+
+/* =========================
+   TEMP HEADER
+========================= */
+
+.temp-header {
+    display: flex;
+
+    align-items: flex-start;
+    justify-content: space-between;
+
+    gap: 20px;
+
+    padding-bottom: 22px;
+
+    border-bottom: 1px solid var(--border);
+}
+
+.temp-header h2 {
+    font-size: 20px;
+    letter-spacing: -0.3px;
+}
+
+.temp-header p {
+    margin-top: 8px;
+
+    color: var(--muted);
+
+    font-size: 12px;
+    line-height: 1.6;
+}
+
+.temp-actions {
+    display: flex;
+
+    gap: 8px;
+
+    flex-shrink: 0;
+}
+
+
+/* =========================
+   TEMP BUTTONS
+========================= */
+
+.secondary-btn,
+.danger-btn {
+    border-radius: 9px;
+
+    padding: 10px 13px;
+
+    font-size: 11px;
+    font-weight: 800;
+
+    letter-spacing: 0.5px;
+
+    cursor: pointer;
+
+    transition:
+        background 0.2s ease,
+        border-color 0.2s ease;
+}
+
+.secondary-btn {
+    background: #1a222e;
+    color: var(--text);
+    border: 1px solid var(--border);
+}
+
+.secondary-btn:hover {
+    background: #242e3b;
+    border-color: #3b4858;
+}
+
+.danger-btn {
+    background: rgba(255, 92, 92, 0.09);
+    color: var(--danger);
+    border: 1px solid rgba(255, 92, 92, 0.25);
+}
+
+.danger-btn:hover {
+    background: rgba(255, 92, 92, 0.16);
+    border-color: rgba(255, 92, 92, 0.45);
+}
+
+
+/* =========================
+   TEMP SUMMARY
+========================= */
+
+.temp-summary {
+    display: grid;
+
+    grid-template-columns:
+        repeat(2, 1fr);
+
+    gap: 10px;
+
+    margin-top: 18px;
+}
+
+.temp-stat {
+    padding: 15px 17px;
+
+    background: rgba(8, 12, 17, 0.55);
+
+    border: 1px solid var(--border);
+    border-radius: 12px;
+}
+
+.temp-stat-label {
+    display: block;
+
+    color: var(--muted);
+
+    font-size: 9px;
+    font-weight: 800;
+
+    letter-spacing: 1.4px;
+
+    margin-bottom: 6px;
+}
+
+.temp-stat strong {
+    color: var(--text);
+
+    font-size: 19px;
+}
+
+
+/* =========================
+   TEMP MESSAGE
+========================= */
+
+.temp-message {
+    margin-top: 16px;
+
+    color: var(--muted);
+
+    font-size: 11px;
+}
+
+
+/* =========================
+   TEMP LIST
+========================= */
+
+.temp-list {
+    display: flex;
+    flex-direction: column;
+
+    gap: 8px;
+
+    margin-top: 12px;
+}
+
+.temp-file-item {
+    display: flex;
+
+    align-items: center;
+    justify-content: space-between;
+
+    gap: 15px;
+
+    padding: 13px 14px;
+
+    background: rgba(8, 12, 17, 0.55);
+
+    border: 1px solid var(--border);
+    border-radius: 11px;
+
+    transition:
+        border-color 0.2s ease,
+        background 0.2s ease;
+}
+
+.temp-file-item:hover {
+    background: rgba(25, 33, 44, 0.65);
+    border-color: #354354;
+}
+
+.temp-file-info {
+    min-width: 0;
+}
+
+.temp-file-name {
+    color: var(--text);
+
+    font-size: 12px;
+    font-weight: 700;
+
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.temp-file-size {
+    margin-top: 4px;
+
+    color: var(--muted);
+
+    font-size: 10px;
+}
+
+.temp-delete-btn {
+    flex-shrink: 0;
+
+    padding: 7px 11px;
+
+    border-radius: 7px;
+
+    border: 1px solid rgba(255, 92, 92, 0.25);
+
+    background: rgba(255, 92, 92, 0.07);
+
+    color: var(--danger);
+
+    font-size: 10px;
+    font-weight: 800;
+
+    cursor: pointer;
+
+    transition:
+        background 0.2s ease,
+        border-color 0.2s ease;
+}
+
+.temp-delete-btn:hover {
+    background: rgba(255, 92, 92, 0.15);
+    border-color: rgba(255, 92, 92, 0.45);
+}
+
+
+/* =========================
+   EMPTY / ERROR
+========================= */
+
+.temp-empty,
+.temp-error {
+    padding: 25px 15px;
+
+    text-align: center;
+
+    border: 1px dashed var(--border);
+    border-radius: 11px;
+
+    color: var(--muted);
+
+    font-size: 12px;
+}
+
+.temp-error {
+    color: var(--danger);
+}
+
+
+/* =========================
+   FOOTER
+========================= */
+
+.footer {
+    display: flex;
+
+    justify-content: space-between;
+
+    margin-top: 25px;
+
+    color: #596575;
+
+    font-size: 10px;
+}
+
+
+/* =========================
+   UTILITIES
+========================= */
 
 .hidden {
-  display: none !important;
+    display: none !important;
 }
 
-@media (max-width: 600px) {
-  .app {
-    padding-top: 28px;
-  }
 
-  .card {
-    padding: 24px 18px;
-  }
+/* =========================
+   RESPONSIVE
+========================= */
 
-  .drop-zone {
-    min-height: 220px;
-  }
+@media (max-width: 700px) {
+
+    .container {
+        width: min(
+            100% - 20px,
+            920px
+        );
+
+        padding-top: 35px;
+    }
+
+    .converter-card,
+    .temp-card {
+        padding: 18px;
+        border-radius: 17px;
+    }
+
+    .drop-zone {
+        min-height: 250px;
+    }
+
+    .info-grid {
+        grid-template-columns: 1fr;
+    }
+
+    .temp-header {
+        flex-direction: column;
+    }
+
+    .temp-actions {
+        width: 100%;
+    }
+
+    .secondary-btn,
+    .danger-btn {
+        flex: 1;
+    }
+
+    .temp-file-item {
+        align-items: flex-start;
+    }
+
+    .temp-file-name {
+        white-space: normal;
+        word-break: break-word;
+    }
+
+    .footer {
+        flex-direction: column;
+        gap: 5px;
+    }
 }
