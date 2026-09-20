@@ -29,12 +29,10 @@ BASE_DIR = Path(__file__).resolve().parent
 TEMP_DIR = BASE_DIR / "temp"
 TEMP_DIR.mkdir(exist_ok=True)
 
-
 MAX_FILE_SIZE = 50 * 1024 * 1024
 
 
 def cleanup_files(*paths):
-    """Delete temporary files after the response has been sent."""
     for path in paths:
         try:
             Path(path).unlink(missing_ok=True)
@@ -82,9 +80,7 @@ async def convert_pdf_to_dxf(
     job_id = uuid.uuid4().hex
 
     pdf_path = TEMP_DIR / f"{job_id}.pdf"
-
-    safe_stem = Path(file.filename).stem
-    dxf_path = TEMP_DIR / f"{safe_stem}_sheet_{page}_{job_id}.dxf"
+    dxf_path = TEMP_DIR / f"{Path(file.filename).stem}_sheet_{page}_{job_id}.dxf"
 
     conversion_success = False
 
@@ -145,10 +141,8 @@ async def convert_pdf_to_dxf(
         )
 
     finally:
-        # PDF is no longer needed once conversion is finished.
         cleanup_files(pdf_path)
 
-        # If conversion failed, also remove any partial DXF.
         if not conversion_success:
             cleanup_files(dxf_path)
 
@@ -157,8 +151,6 @@ async def convert_pdf_to_dxf(
 async def pdf_info(
     file: UploadFile = File(...)
 ):
-    """Return page count and basic page information."""
-
     if not file.filename:
         raise HTTPException(
             status_code=400,
