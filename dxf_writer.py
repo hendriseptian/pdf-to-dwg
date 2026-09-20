@@ -1,82 +1,195 @@
 cat > dxf_writer.py <<'PY'
 import ezdxf
 from pathlib import Path
+import re
 
 
 # ============================================================
-# DXF WRITER - OPTIMIZED / STABLE
+# DXF WRITER - PDF TEXT PRESERVE
 # ============================================================
 
 LINE_LAYER = "PDF_LINE"
 POLYLINE_LAYER = "PDF_POLYLINE"
 TEXT_LAYER = "PDF_TEXT"
 
-LINE_ATTR = {
-    "layer": LINE_LAYER,
-}
-
-POLYLINE_ATTR = {
-    "layer": POLYLINE_LAYER,
-}
-
-TEXT_ATTR_BASE = {
-    "layer": TEXT_LAYER,
-}
-
 
 def _pdf_to_dxf_xy(x, y, page_height):
-    """
-    Convert PDF top-left Y direction
-    into CAD bottom-left Y direction.
-    """
+
     return (
         float(x),
         float(page_height - y),
     )
 
 
-def _convert_points(points, page_height):
-    """
-    Convert PDF points to DXF coordinates.
-    """
-    return [
-        (
-            float(point[0]),
-            float(page_height - point[1]),
+def _safe_style_name(font_name):
+
+    if not font_name:
+        return "PDF_DEFAULT"
+
+    name = str(font_name)
+
+    # Remove PDF subset prefix.
+    # Example:
+    # ABCDEF+ArialMT
+    # becomes:
+    # ArialMT
+    if "+" in name:
+        prefix, remainder = name.split(
+            "+",
+            1
         )
-        for point in points
-    ]
+
+        if len(prefix) == 6:
+            name = remainder
+
+    name = re.sub(
+        r"[^A-Za-z0-9_]+",
+        "_",
+        name
+    )
+
+    if not name:
+        name = "PDF_DEFAULT"
+
+    # DXF names should remain reasonably short.
+    return (
+        "PDF_"
+        + name[:200]
+    )
 
 
-def write_dxf(output_path, objects, page_info):
+def _font_filename(font_name):
+
     """
-    Write extracted PDF objects to editable DXF.
+    Convert common PDF font names into a font filename.
 
-    V1/V1.1:
-    - PDF coordinate scale is preserved.
-    - No guessed mm/inch conversion.
-    - LINE remains LINE.
-    - POLYLINE remains LWPOLYLINE.
-    - TEXT remains TEXT.
+    Important:
+    DXF cannot embed the PDF font itself.
+    The referenced font must exist on the CAD computer.
     """
 
-    output_path = Path(output_path)
+    if not font_name:
+        return "txt.shx"
 
-    # --------------------------------------------------------
+    name = str(font_name)
+
+    # Remove PDF subset prefix.
+    if "+" in name:
+
+        prefix, remainder = name.split(
+            "+",
+            1
+        )
+
+        if len(prefix) == 6:
+            name = remainder
+
+    lower = name.lower()
+
+    # Common Windows fonts.
+    known_fonts = {
+        "arialmt": "arial.ttf",
+        "arial": "arial.ttf",
+        "timesnewromanpsmt": "times.ttf",
+        "timesnewroman": "times.ttf",
+        "calibri": "calibri.ttf",
+        "calibrib": "calibrib.ttf",
+        "calibrii": "calibrii.ttf",
+        "couriernewpsmt": "cour.ttf",
+        "couriernew": "cour.ttf",
+        "segoeui": "segoeui.ttf",
+        "tahoma": "tahoma.ttf",
+        "verdana": "verdana.ttf",
+    }
+
+    if lower in known_fonts:
+        return known_fonts[lower]
+
+    # If PDF font name already looks like a font file.
+    if lower.endswith(
+        (
+            ".ttf",
+            ".otf",
+            ".shx",
+        )
+    ):
+        return name
+
+    # Best effort:
+    # use font name as filename.
+    return name + ".ttf"
+
+
+def _ensure_text_style(
+    doc,
+    font_name,
+    font_flags,
+):
+
+    style_name = _safe_style_name(
+        font_name
+    )
+
+    font_file = _font_filename(
+        font_name
+    )
+
+    if style_name not in doc.styles:
+
+        try:
+
+            doc.styles.add(
+                style_name,
+                font=font_file,
+            )
+
+        except Exception:
+
+            # Safe fallback if an unusual
+            # font name is rejected.
+            doc.styles.add(
+                style_name,
+                font="txt.shx",
+            )
+
+    return style_name
+
+
+def _text_rotation_from_flags(
+    rotation
+):
+
+    try:
+        return float(rotation)
+    except Exception:
+        return 0.0
+
+
+def write_dxf(
+    output_path,
+    objects,
+    page_info
+):
+
+    output_path = Path(
+        output_path
+    )
+
+    # ========================================================
     # CREATE DXF
-    # --------------------------------------------------------
+    # ========================================================
 
     doc = ezdxf.new(
         "R2018",
         setup=True,
     )
 
-    # Unit-neutral.
+    # Keep PDF coordinates unit-neutral.
     doc.units = 0
 
-    # --------------------------------------------------------
+    # ========================================================
     # LAYERS
-    # --------------------------------------------------------
+    # ========================================================
 
     layers = (
         (LINE_LAYER, 7),
@@ -99,13 +212,15 @@ def write_dxf(output_path, objects, page_info):
         page_info["height"]
     )
 
-    # --------------------------------------------------------
-    # WRITE OBJECTS
-    # --------------------------------------------------------
+    # ========================================================
+    # OBJECTS
+    # ========================================================
 
     for obj in objects:
 
-        obj_type = obj.get("type")
+        obj_type = obj.get(
+            "type"
+        )
 
         # ====================================================
         # LINE
@@ -116,20 +231,24 @@ def write_dxf(output_path, objects, page_info):
             start = obj["start"]
             end = obj["end"]
 
-            x1 = float(start[0])
-            y1 = float(
-                page_height - start[1]
+            x1, y1 = _pdf_to_dxf_xy(
+                start[0],
+                start[1],
+                page_height,
             )
 
-            x2 = float(end[0])
-            y2 = float(
-                page_height - end[1]
+            x2, y2 = _pdf_to_dxf_xy(
+                end[0],
+                end[1],
+                page_height,
             )
 
             msp.add_line(
                 (x1, y1),
                 (x2, y2),
-                dxfattribs=LINE_ATTR,
+                dxfattribs={
+                    "layer": LINE_LAYER,
+                },
             )
 
         # ====================================================
@@ -146,10 +265,14 @@ def write_dxf(output_path, objects, page_info):
             if len(source_points) < 2:
                 continue
 
-            points = _convert_points(
-                source_points,
-                page_height,
-            )
+            points = [
+                _pdf_to_dxf_xy(
+                    p[0],
+                    p[1],
+                    page_height,
+                )
+                for p in source_points
+            ]
 
             msp.add_lwpolyline(
                 points,
@@ -159,7 +282,9 @@ def write_dxf(output_path, objects, page_info):
                         False
                     )
                 ),
-                dxfattribs=POLYLINE_ATTR,
+                dxfattribs={
+                    "layer": POLYLINE_LAYER,
+                },
             )
 
         # ====================================================
@@ -173,9 +298,10 @@ def write_dxf(output_path, objects, page_info):
                 [0.0, 0.0]
             )
 
-            x = float(position[0])
-            y = float(
-                page_height - position[1]
+            x, y = _pdf_to_dxf_xy(
+                position[0],
+                position[1],
+                page_height,
             )
 
             text = str(
@@ -198,11 +324,36 @@ def write_dxf(output_path, objects, page_info):
                 0.1,
             )
 
+            font_name = obj.get(
+                "font",
+                ""
+            )
+
+            font_flags = obj.get(
+                "font_flags",
+                0
+            )
+
+            rotation = _text_rotation_from_flags(
+                obj.get(
+                    "rotation",
+                    0.0
+                )
+            )
+
+            style_name = _ensure_text_style(
+                doc,
+                font_name,
+                font_flags,
+            )
+
             text_entity = msp.add_text(
                 text,
                 dxfattribs={
                     "layer": TEXT_LAYER,
                     "height": height,
+                    "style": style_name,
+                    "rotation": rotation,
                 },
             )
 
@@ -211,9 +362,9 @@ def write_dxf(output_path, objects, page_info):
                 y,
             )
 
-    # --------------------------------------------------------
+    # ========================================================
     # SAVE
-    # --------------------------------------------------------
+    # ========================================================
 
     doc.saveas(
         output_path
