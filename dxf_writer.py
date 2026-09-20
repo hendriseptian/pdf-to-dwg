@@ -1,11 +1,9 @@
-cat > dxf_writer.py <<'PY'
 import ezdxf
-from pathlib import Path
-import re
+import math
 
 
 # ============================================================
-# DXF WRITER - PDF TEXT PRESERVE
+# DXF LAYERS
 # ============================================================
 
 LINE_LAYER = "PDF_LINE"
@@ -13,214 +11,254 @@ POLYLINE_LAYER = "PDF_POLYLINE"
 TEXT_LAYER = "PDF_TEXT"
 
 
+# ============================================================
+# PDF → DXF COORDINATE
+# ============================================================
+
 def _pdf_to_dxf_xy(x, y, page_height):
-
-    return (
-        float(x),
-        float(page_height - y),
-    )
-
-
-def _safe_style_name(font_name):
-
-    if not font_name:
-        return "PDF_DEFAULT"
-
-    name = str(font_name)
-
-    # Remove PDF subset prefix.
-    # Example:
-    # ABCDEF+ArialMT
-    # becomes:
-    # ArialMT
-    if "+" in name:
-        prefix, remainder = name.split(
-            "+",
-            1
-        )
-
-        if len(prefix) == 6:
-            name = remainder
-
-    name = re.sub(
-        r"[^A-Za-z0-9_]+",
-        "_",
-        name
-    )
-
-    if not name:
-        name = "PDF_DEFAULT"
-
-    # DXF names should remain reasonably short.
-    return (
-        "PDF_"
-        + name[:200]
-    )
-
-
-def _font_filename(font_name):
-
     """
-    Convert common PDF font names into a font filename.
+    Convert PDF coordinate system to DXF coordinate system.
 
-    Important:
-    DXF cannot embed the PDF font itself.
-    The referenced font must exist on the CAD computer.
+    PDF:
+        origin = top-left
+        Y increases downward
+
+    DXF:
+        origin = bottom-left
+        Y increases upward
+    """
+    return float(x), float(page_height - y)
+
+
+# ============================================================
+# FONT MAPPING
+# ============================================================
+
+FONT_MAP = {
+    # Arial
+    "arialmt": "arial.ttf",
+    "arial": "arial.ttf",
+
+    # Arial Bold
+    "arial-boldmt": "arialbd.ttf",
+    "arial-bold": "arialbd.ttf",
+
+    # Arial Narrow Bold
+    "arialnarrow-bold": "arialnb.ttf",
+    "arial narrow bold": "arialnb.ttf",
+
+    # Tahoma
+    "tahoma": "tahoma.ttf",
+}
+
+
+# ============================================================
+# FONT NORMALIZATION
+# ============================================================
+
+def _normalize_font_name(font_name):
+    """
+    Normalize PDF font name.
+
+    Examples:
+        ArialMT
+        ABCDEF+ArialMT
+        Arial-BoldMT
     """
 
     if not font_name:
-        return "txt.shx"
+        return "ArialMT"
 
-    name = str(font_name)
+    name = str(font_name).strip()
 
-    # Remove PDF subset prefix.
+    # Remove PDF subset prefix:
+    # ABCDEF+ArialMT → ArialMT
     if "+" in name:
+        name = name.split("+", 1)[1]
 
-        prefix, remainder = name.split(
-            "+",
-            1
+    return name
+
+
+def _font_file_from_pdf_name(font_name):
+    """
+    Convert PDF BASEFONT name into a DXF font filename.
+    """
+
+    normalized = _normalize_font_name(font_name)
+
+    key = normalized.lower()
+
+    # Exact known fonts
+    if key in FONT_MAP:
+        return FONT_MAP[key]
+
+    # Fallback rules
+    if "arialnarrow" in key and "bold" in key:
+        return "arialnb.ttf"
+
+    if "arial" in key and "bold" in key:
+        return "arialbd.ttf"
+
+    if "arial" in key:
+        return "arial.ttf"
+
+    if "tahoma" in key:
+        return "tahoma.ttf"
+
+    # Generic fallback
+    return "arial.ttf"
+
+
+def _style_name_from_font(font_name):
+    """
+    Create a safe DXF style name.
+    """
+
+    normalized = _normalize_font_name(font_name)
+
+    safe = normalized.replace(" ", "_")
+    safe = safe.replace("-", "_")
+    safe = safe.replace("+", "_")
+
+    return "PDF_" + safe
+
+
+# ============================================================
+# DXF TEXT STYLE
+# ============================================================
+
+def _ensure_text_style(doc, font_name):
+    """
+    Create or reuse a DXF text style corresponding
+    to the PDF font.
+    """
+
+    normalized = _normalize_font_name(font_name)
+    style_name = _style_name_from_font(normalized)
+    font_file = _font_file_from_pdf_name(normalized)
+
+    # Already exists
+    if style_name in doc.styles:
+        return style_name
+
+    try:
+        doc.styles.add(
+            style_name,
+            font=font_file
         )
-
-        if len(prefix) == 6:
-            name = remainder
-
-    lower = name.lower()
-
-    # Common Windows fonts.
-    known_fonts = {
-        "arialmt": "arial.ttf",
-        "arial": "arial.ttf",
-        "timesnewromanpsmt": "times.ttf",
-        "timesnewroman": "times.ttf",
-        "calibri": "calibri.ttf",
-        "calibrib": "calibrib.ttf",
-        "calibrii": "calibrii.ttf",
-        "couriernewpsmt": "cour.ttf",
-        "couriernew": "cour.ttf",
-        "segoeui": "segoeui.ttf",
-        "tahoma": "tahoma.ttf",
-        "verdana": "verdana.ttf",
-    }
-
-    if lower in known_fonts:
-        return known_fonts[lower]
-
-    # If PDF font name already looks like a font file.
-    if lower.endswith(
-        (
-            ".ttf",
-            ".otf",
-            ".shx",
-        )
-    ):
-        return name
-
-    # Best effort:
-    # use font name as filename.
-    return name + ".ttf"
-
-
-def _ensure_text_style(
-    doc,
-    font_name,
-    font_flags,
-):
-
-    style_name = _safe_style_name(
-        font_name
-    )
-
-    font_file = _font_filename(
-        font_name
-    )
-
-    if style_name not in doc.styles:
-
-        try:
-
+    except Exception:
+        # Final fallback
+        if style_name not in doc.styles:
             doc.styles.add(
                 style_name,
-                font=font_file,
-            )
-
-        except Exception:
-
-            # Safe fallback if an unusual
-            # font name is rejected.
-            doc.styles.add(
-                style_name,
-                font="txt.shx",
+                font="arial.ttf"
             )
 
     return style_name
 
 
-def _text_rotation_from_flags(
-    rotation
-):
+# ============================================================
+# SAFE FLOAT
+# ============================================================
+
+def _safe_float(value, default=0.0):
+    try:
+        return float(value)
+    except Exception:
+        return default
+
+
+# ============================================================
+# COLOR
+# ============================================================
+
+def _rgb_to_true_color(rgb):
+    """
+    Convert RGB tuple to AutoCAD true color integer.
+    """
+
+    if not rgb:
+        return None
 
     try:
-        return float(rotation)
+        r, g, b = rgb[:3]
+
+        r = max(0, min(255, int(r)))
+        g = max(0, min(255, int(g)))
+        b = max(0, min(255, int(b)))
+
+        return (r << 16) | (g << 8) | b
+
     except Exception:
-        return 0.0
+        return None
 
 
-def write_dxf(
-    output_path,
-    objects,
-    page_info
-):
+# ============================================================
+# MAIN DXF WRITER
+# ============================================================
 
-    output_path = Path(
-        output_path
-    )
+def write_dxf(objects, page_info, output_path):
+    """
+    Write extracted PDF objects into DXF.
 
-    # ========================================================
-    # CREATE DXF
-    # ========================================================
+    Supported:
+        LINE
+        POLYLINE
+        TEXT
+
+    TEXT preserves:
+        - text content
+        - font
+        - size
+        - position
+        - rotation
+        - color when available
+    """
 
     doc = ezdxf.new(
         "R2018",
-        setup=True,
+        setup=True
     )
 
-    # Keep PDF coordinates unit-neutral.
-    doc.units = 0
+    # --------------------------------------------------------
+    # Layers
+    # --------------------------------------------------------
 
-    # ========================================================
-    # LAYERS
-    # ========================================================
+    if LINE_LAYER not in doc.layers:
+        doc.layers.add(
+            LINE_LAYER,
+            color=7
+        )
 
-    layers = (
-        (LINE_LAYER, 7),
-        (POLYLINE_LAYER, 7),
-        (TEXT_LAYER, 7),
-    )
+    if POLYLINE_LAYER not in doc.layers:
+        doc.layers.add(
+            POLYLINE_LAYER,
+            color=7
+        )
 
-    for name, color in layers:
-
-        if name not in doc.layers:
-
-            doc.layers.add(
-                name,
-                color=color,
-            )
+    if TEXT_LAYER not in doc.layers:
+        doc.layers.add(
+            TEXT_LAYER,
+            color=7
+        )
 
     msp = doc.modelspace()
 
-    page_height = float(
-        page_info["height"]
+    page_width = _safe_float(
+        page_info.get("width", 0)
     )
 
-    # ========================================================
-    # OBJECTS
-    # ========================================================
+    page_height = _safe_float(
+        page_info.get("height", 0)
+    )
+
+    # --------------------------------------------------------
+    # Objects
+    # --------------------------------------------------------
 
     for obj in objects:
 
-        obj_type = obj.get(
-            "type"
-        )
+        obj_type = obj.get("type")
 
         # ====================================================
         # LINE
@@ -228,28 +266,38 @@ def write_dxf(
 
         if obj_type == "LINE":
 
-            start = obj["start"]
-            end = obj["end"]
+            start = obj.get("start")
+            end = obj.get("end")
+
+            if not start or not end:
+                continue
 
             x1, y1 = _pdf_to_dxf_xy(
                 start[0],
                 start[1],
-                page_height,
+                page_height
             )
 
             x2, y2 = _pdf_to_dxf_xy(
                 end[0],
                 end[1],
-                page_height,
+                page_height
             )
 
-            msp.add_line(
+            entity = msp.add_line(
                 (x1, y1),
                 (x2, y2),
                 dxfattribs={
-                    "layer": LINE_LAYER,
-                },
+                    "layer": LINE_LAYER
+                }
             )
+
+            color = _rgb_to_true_color(
+                obj.get("color")
+            )
+
+            if color is not None:
+                entity.dxf.true_color = color
 
         # ====================================================
         # POLYLINE
@@ -257,35 +305,41 @@ def write_dxf(
 
         elif obj_type == "POLYLINE":
 
-            source_points = obj.get(
-                "points",
-                []
-            )
+            points = obj.get("points")
 
-            if len(source_points) < 2:
+            if not points or len(points) < 2:
                 continue
 
-            points = [
-                _pdf_to_dxf_xy(
-                    p[0],
-                    p[1],
-                    page_height,
-                )
-                for p in source_points
-            ]
+            dxf_points = []
 
-            msp.add_lwpolyline(
-                points,
+            for point in points:
+
+                x, y = _pdf_to_dxf_xy(
+                    point[0],
+                    point[1],
+                    page_height
+                )
+
+                dxf_points.append(
+                    (x, y)
+                )
+
+            entity = msp.add_lwpolyline(
+                dxf_points,
                 close=bool(
-                    obj.get(
-                        "closed",
-                        False
-                    )
+                    obj.get("closed", False)
                 ),
                 dxfattribs={
-                    "layer": POLYLINE_LAYER,
-                },
+                    "layer": POLYLINE_LAYER
+                }
             )
+
+            color = _rgb_to_true_color(
+                obj.get("color")
+            )
+
+            if color is not None:
+                entity.dxf.true_color = color
 
         # ====================================================
         # TEXT
@@ -293,82 +347,107 @@ def write_dxf(
 
         elif obj_type == "TEXT":
 
-            position = obj.get(
-                "position",
-                [0.0, 0.0]
-            )
-
-            x, y = _pdf_to_dxf_xy(
-                position[0],
-                position[1],
-                page_height,
-            )
-
-            text = str(
-                obj.get(
-                    "text",
-                    ""
-                )
-            )
+            text = obj.get("text", "")
 
             if not text:
                 continue
 
-            height = max(
-                float(
-                    obj.get(
-                        "height",
-                        10.0
-                    )
-                ),
-                0.1,
-            )
+            # ------------------------------------------------
+            # Font
+            # ------------------------------------------------
 
-            font_name = obj.get(
+            pdf_font = obj.get(
                 "font",
-                ""
-            )
-
-            font_flags = obj.get(
-                "font_flags",
-                0
-            )
-
-            rotation = _text_rotation_from_flags(
-                obj.get(
-                    "rotation",
-                    0.0
-                )
+                "ArialMT"
             )
 
             style_name = _ensure_text_style(
                 doc,
-                font_name,
-                font_flags,
+                pdf_font
             )
 
-            text_entity = msp.add_text(
+            # ------------------------------------------------
+            # Position
+            # ------------------------------------------------
+
+            position = obj.get("position")
+
+            if not position:
+
+                bbox = obj.get("bbox")
+
+                if bbox:
+                    position = (
+                        bbox[0],
+                        bbox[3]
+                    )
+                else:
+                    continue
+
+            x, y = _pdf_to_dxf_xy(
+                position[0],
+                position[1],
+                page_height
+            )
+
+            # ------------------------------------------------
+            # Height
+            # ------------------------------------------------
+
+            height = _safe_float(
+                obj.get("height"),
+                10.0
+            )
+
+            if height <= 0:
+                height = 10.0
+
+            # ------------------------------------------------
+            # Rotation
+            # ------------------------------------------------
+
+            rotation = _safe_float(
+                obj.get("rotation"),
+                0.0
+            )
+
+            # ------------------------------------------------
+            # TEXT
+            # ------------------------------------------------
+
+            entity = msp.add_text(
                 text,
                 dxfattribs={
                     "layer": TEXT_LAYER,
-                    "height": height,
                     "style": style_name,
+                    "height": height,
                     "rotation": rotation,
-                },
+                    "insert": (x, y),
+                }
             )
 
-            text_entity.dxf.insert = (
-                x,
-                y,
+            # ------------------------------------------------
+            # Color
+            # ------------------------------------------------
+
+            color = _rgb_to_true_color(
+                obj.get("color")
             )
+
+            if color is not None:
+                entity.dxf.true_color = color
+
+    # ========================================================
+    # HEADER / PAGE INFORMATION
+    # ========================================================
+
+    try:
+        doc.header["$INSUNITS"] = 0
+    except Exception:
+        pass
 
     # ========================================================
     # SAVE
     # ========================================================
 
-    doc.saveas(
-        output_path
-    )
-
-    return output_path
-PY
+    doc.saveas(output_path)
