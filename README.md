@@ -1,98 +1,20 @@
-# PDF2DXF
+# PDF → Editable DXF — Frontend V1
 
-Online PDF → Editable DXF converter.
+Static frontend for the PDF2DXF backend.
 
-## V1 scope
+## Backend
+https://hendri.pythonanywhere.com
 
-- One PDF upload
-- Select one sheet/page
-- Vector PDF conversion
-- LINE
-- POLYLINE
-- Rectangle
-- Quadrilateral
-- Bezier curves approximated as polylines
-- TEXT
-- Editable DXF output
-- No database
-- No permanent PDF storage
-- No AI
-- No OCR in V1
+## Files
+- `index.html`
+- `style.css`
+- `script.js`
 
-## Important coordinate/unit behavior
+## Deployment
+Upload these three files to the GitHub Pages repository/branch used for the public frontend.
 
-PDF coordinates are preserved in PDF points.
+The frontend calls:
+- `POST /pdf-info`
+- `POST /convert`
 
-The converter does **not** guess mm or inch in V1. The DXF is therefore created as unitless while preserving the PDF geometry scale.
-
-This avoids silently applying an incorrect engineering scale.
-
-## Run locally
-
-```bash
-pip install -r requirements.txt
-uvicorn main:app --reload
-```
-
-Open:
-
-```text
-http://127.0.0.1:8000/docs
-```
-
-## API
-
-### GET /
-
-Health/status endpoint.
-
-### GET /health
-
-Returns:
-
-```json
-{"status":"ok"}
-```
-
-### POST /pdf-info
-
-Upload a PDF to get the number of sheets/pages and page sizes.
-
-### POST /convert
-
-Form fields:
-
-- `file`: PDF file
-- `page`: 1-based page/sheet number
-
-Example with curl:
-
-```bash
-curl -X POST "http://127.0.0.1:8000/convert" \
-  -F "file=@drawing.pdf" \
-  -F "page=1" \
-  -o drawing.dxf
-```
-
-## Render
-
-For Render Web Service:
-
-- Runtime: Python
-- Build command:
-
-```text
-pip install -r requirements.txt
-```
-
-- Start command:
-
-```text
-uvicorn main:app --host 0.0.0.0 --port $PORT
-```
-
-The frontend will call the deployed `/pdf-info` and `/convert` endpoints.
-
-## Security note
-
-This V1 is intended as a prototype. Uploaded PDFs are processed temporarily and the source PDF is removed after processing. The generated DXF remains temporarily on the server so it can be returned to the client; a production version should add automatic cleanup of old output files and stricter upload/rate limits.
+V1 supports vector PDF drawings. Scanned/image-only PDFs are not supported yet.
