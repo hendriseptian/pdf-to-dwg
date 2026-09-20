@@ -1,25 +1,16 @@
 cat > pdf_parser.py <<'PY'
 import pymupdf as fitz
+import math
 
 
 # ============================================================
-# PDF PARSER - FAST & STABLE V2
+# PDF PARSER - TEXT PRESERVE
 # ============================================================
 
-# Bézier curve sampling.
-# Lebih kecil = lebih ringan.
-# 8 cukup untuk menjaga bentuk teknis sambil mengurangi vertex.
 CURVE_STEPS = 8
 
 
 def point_xy(point):
-    """
-    Convert PyMuPDF point-like data to [x, y].
-
-    Supports:
-    - PyMuPDF Point
-    - tuple/list: (x, y)
-    """
     try:
         return [float(point.x), float(point.y)]
     except AttributeError:
@@ -27,25 +18,13 @@ def point_xy(point):
 
 
 def points_equal(p1, p2, tolerance=0.001):
-    """Check whether two points are effectively identical."""
     return (
         abs(p1[0] - p2[0]) <= tolerance
         and abs(p1[1] - p2[1]) <= tolerance
     )
 
 
-def append_unique(points, point):
-    """Append point only when different from previous point."""
-    xy = point_xy(point)
-
-    if not points or not points_equal(points[-1], xy):
-        points.append(xy)
-
-
 def cubic_bezier(p0, p1, p2, p3, steps=CURVE_STEPS):
-    """
-    Approximate cubic Bézier curve using a lightweight polyline.
-    """
 
     p0 = point_xy(p0)
     p1 = point_xy(p1)
@@ -59,104 +38,32 @@ def cubic_bezier(p0, p1, p2, p3, steps=CURVE_STEPS):
         t = i / steps
         mt = 1.0 - t
 
-        mt2 = mt * mt
-        t2 = t * t
-
         x = (
-            mt2 * mt * p0[0]
-            + 3.0 * mt2 * t * p1[0]
-            + 3.0 * mt * t2 * p2[0]
-            + t2 * t * p3[0]
+            mt ** 3 * p0[0]
+            + 3 * mt ** 2 * t * p1[0]
+            + 3 * mt * t ** 2 * p2[0]
+            + t ** 3 * p3[0]
         )
 
         y = (
-            mt2 * mt * p0[1]
-            + 3.0 * mt2 * t * p1[1]
-            + 3.0 * mt * t2 * p2[1]
-            + t2 * t * p3[1]
+            mt ** 3 * p0[1]
+            + 3 * mt ** 2 * t * p1[1]
+            + 3 * mt * t ** 2 * p2[1]
+            + t ** 3 * p3[1]
         )
 
         point = [x, y]
 
-        if not result or not points_equal(
-            result[-1],
-            point
+        if (
+            not result
+            or not points_equal(result[-1], point)
         ):
             result.append(point)
 
     return result
 
 
-def rectangle_points(rect):
-    """
-    Convert rect-like tuple to closed polyline.
-    """
-
-    x0 = float(rect[0])
-    y0 = float(rect[1])
-    x1 = float(rect[2])
-    y1 = float(rect[3])
-
-    return [
-        [x0, y0],
-        [x1, y0],
-        [x1, y1],
-        [x0, y1],
-        [x0, y0],
-    ]
-
-
-def quad_points(quad):
-    """
-    Convert quad-like tuple/list to closed polyline.
-    """
-
-    return [
-        point_xy(quad[0]),
-        point_xy(quad[1]),
-        point_xy(quad[2]),
-        point_xy(quad[3]),
-        point_xy(quad[0]),
-    ]
-
-
-def flush_polyline(objects, points):
-    """
-    Add accumulated curve/polyline to objects.
-    """
-
-    if len(points) < 2:
-        return
-
-    cleaned = []
-
-    for point in points:
-
-        if (
-            not cleaned
-            or not points_equal(
-                cleaned[-1],
-                point
-            )
-        ):
-            cleaned.append(point)
-
-    if len(cleaned) >= 2:
-
-        objects.append({
-            "type": "POLYLINE",
-            "points": cleaned,
-        })
-
-
 def extract_pdf_page(pdf_path, page_number):
-    """
-    Extract vector geometry and text from one PDF page.
-
-    Returns:
-        objects
-        page_info
-    """
 
     doc = fitz.open(pdf_path)
 
@@ -176,10 +83,6 @@ def extract_pdf_page(pdf_path, page_number):
 
         objects = []
 
-        # ====================================================
-        # PAGE INFORMATION
-        # ====================================================
-
         rect = page.rect
 
         page_info = {
@@ -190,21 +93,47 @@ def extract_pdf_page(pdf_path, page_number):
         }
 
         # ====================================================
-        # VECTOR GRAPHICS
-        #
-        # IMPORTANT:
-        # get_cdrawings() is used instead of get_drawings()
-        # because it avoids creation of many Python geometry
-        # objects and is significantly faster.
+        # VECTOR DRAWINGS
         # ====================================================
 
-        drawings = page.get_cdrawings()
+        drawings = page.get_drawings()
 
         for drawing in drawings:
 
-            items = drawing.get("items", [])
+            items = drawing.get(
+                "items",
+                []
+            )
 
             current_polyline = []
+
+            def flush_polyline():
+
+                nonlocal current_polyline
+
+                if len(current_polyline) >= 2:
+
+                    cleaned = []
+
+                    for point in current_polyline:
+
+                        if (
+                            not cleaned
+                            or not points_equal(
+                                cleaned[-1],
+                                point
+                            )
+                        ):
+                            cleaned.append(point)
+
+                    if len(cleaned) >= 2:
+
+                        objects.append({
+                            "type": "POLYLINE",
+                            "points": cleaned,
+                        })
+
+                current_polyline = []
 
             for item in items:
 
@@ -219,12 +148,7 @@ def extract_pdf_page(pdf_path, page_number):
 
                 if item_type == "l":
 
-                    flush_polyline(
-                        objects,
-                        current_polyline
-                    )
-
-                    current_polyline = []
+                    flush_polyline()
 
                     p1 = point_xy(item[1])
                     p2 = point_xy(item[2])
@@ -243,20 +167,25 @@ def extract_pdf_page(pdf_path, page_number):
 
                 elif item_type == "re":
 
-                    flush_polyline(
-                        objects,
-                        current_polyline
-                    )
+                    flush_polyline()
 
-                    current_polyline = []
+                    r = item[1]
 
-                    points = rectangle_points(
-                        item[1]
-                    )
+                    x0 = float(r.x0)
+                    y0 = float(r.y0)
+                    x1 = float(r.x1)
+                    y1 = float(r.y1)
 
                     objects.append({
                         "type": "POLYLINE",
-                        "points": points,
+                        "points": [
+                            [x0, y0],
+                            [x1, y0],
+                            [x1, y1],
+                            [x0, y1],
+                            [x0, y0],
+                        ],
+                        "closed": True,
                     })
 
                 # --------------------------------------------
@@ -265,24 +194,24 @@ def extract_pdf_page(pdf_path, page_number):
 
                 elif item_type == "qu":
 
-                    flush_polyline(
-                        objects,
-                        current_polyline
-                    )
+                    flush_polyline()
 
-                    current_polyline = []
-
-                    points = quad_points(
-                        item[1]
-                    )
+                    q = item[1]
 
                     objects.append({
                         "type": "POLYLINE",
-                        "points": points,
+                        "points": [
+                            point_xy(q.ul),
+                            point_xy(q.ur),
+                            point_xy(q.lr),
+                            point_xy(q.ll),
+                            point_xy(q.ul),
+                        ],
+                        "closed": True,
                     })
 
                 # --------------------------------------------
-                # CUBIC BÉZIER
+                # CUBIC
                 # --------------------------------------------
 
                 elif item_type == "c":
@@ -292,7 +221,6 @@ def extract_pdf_page(pdf_path, page_number):
                         item[2],
                         item[3],
                         item[4],
-                        CURVE_STEPS,
                     )
 
                     for point in curve:
@@ -301,39 +229,25 @@ def extract_pdf_page(pdf_path, page_number):
                             not current_polyline
                             or not points_equal(
                                 current_polyline[-1],
-                                point
+                                point,
                             )
                         ):
                             current_polyline.append(
                                 point
                             )
 
-                # --------------------------------------------
-                # UNKNOWN
-                # --------------------------------------------
-
                 else:
 
-                    flush_polyline(
-                        objects,
-                        current_polyline
-                    )
+                    flush_polyline()
 
-                    current_polyline = []
-
-            # Flush remaining curve
-            flush_polyline(
-                objects,
-                current_polyline
-            )
+            flush_polyline()
 
         # ====================================================
         # TEXT
         # ====================================================
 
         text_dict = page.get_text(
-            "dict",
-            flags=11
+            "dict"
         )
 
         for block in text_dict.get(
@@ -341,7 +255,6 @@ def extract_pdf_page(pdf_path, page_number):
             []
         ):
 
-            # Ignore images / non-text blocks
             if block.get("type") != 0:
                 continue
 
@@ -349,6 +262,29 @@ def extract_pdf_page(pdf_path, page_number):
                 "lines",
                 []
             ):
+
+                # ------------------------------------------------
+                # Text direction
+                # ------------------------------------------------
+
+                direction = line.get(
+                    "dir",
+                    (1.0, 0.0)
+                )
+
+                try:
+                    dx = float(direction[0])
+                    dy = float(direction[1])
+
+                    rotation = math.degrees(
+                        math.atan2(
+                            -dy,
+                            dx
+                        )
+                    )
+
+                except Exception:
+                    rotation = 0.0
 
                 for span in line.get(
                     "spans",
@@ -370,8 +306,52 @@ def extract_pdf_page(pdf_path, page_number):
                     if not bbox:
                         continue
 
-                    x = float(bbox[0])
-                    y = float(bbox[3])
+                    # ------------------------------------------------
+                    # PDF font information
+                    # ------------------------------------------------
+
+                    font_name = str(
+                        span.get(
+                            "font",
+                            ""
+                        )
+                    ).strip()
+
+                    font_flags = int(
+                        span.get(
+                            "flags",
+                            0
+                        )
+                    )
+
+                    # ------------------------------------------------
+                    # Position
+                    #
+                    # Use baseline origin when available.
+                    # This is generally more accurate for TEXT.
+                    # ------------------------------------------------
+
+                    origin = span.get(
+                        "origin"
+                    )
+
+                    if origin:
+
+                        position = [
+                            float(origin[0]),
+                            float(origin[1]),
+                        ]
+
+                    else:
+
+                        position = [
+                            float(bbox[0]),
+                            float(bbox[3]),
+                        ]
+
+                    # ------------------------------------------------
+                    # Font size
+                    # ------------------------------------------------
 
                     height = float(
                         span.get(
@@ -380,11 +360,47 @@ def extract_pdf_page(pdf_path, page_number):
                         )
                     )
 
+                    if height <= 0:
+                        height = 10.0
+
+                    # ------------------------------------------------
+                    # PDF color
+                    # ------------------------------------------------
+
+                    color = span.get(
+                        "color",
+                        0
+                    )
+
+                    # ------------------------------------------------
+                    # Preserve text metadata
+                    # ------------------------------------------------
+
                     objects.append({
+
                         "type": "TEXT",
+
                         "text": text,
-                        "position": [x, y],
+
+                        "position": position,
+
                         "height": height,
+
+                        "font": font_name,
+
+                        "font_flags": font_flags,
+
+                        "rotation": rotation,
+
+                        "color": color,
+
+                        "bbox": [
+                            float(bbox[0]),
+                            float(bbox[1]),
+                            float(bbox[2]),
+                            float(bbox[3]),
+                        ],
+
                     })
 
         return objects, page_info
