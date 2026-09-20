@@ -1,22 +1,32 @@
+cat > pdf_parser.py <<'PY'
 import pymupdf as fitz
 
 
 # ============================================================
-# PDF PARSER - OPTIMIZED V1.1
+# PDF PARSER - FAST & STABLE V2
 # ============================================================
 
-# Curve sampling.
-# V1 sebelumnya menggunakan 24 steps.
-# V1.1 menggunakan 8 untuk mengurangi jumlah vertex DXF.
+# Bézier curve sampling.
+# Lebih kecil = lebih ringan.
+# 8 cukup untuk menjaga bentuk teknis sambil mengurangi vertex.
 CURVE_STEPS = 8
 
 
-def _point_xy(point):
-    """Convert PyMuPDF point-like object to [x, y]."""
-    return [float(point.x), float(point.y)]
+def point_xy(point):
+    """
+    Convert PyMuPDF point-like data to [x, y].
+
+    Supports:
+    - PyMuPDF Point
+    - tuple/list: (x, y)
+    """
+    try:
+        return [float(point.x), float(point.y)]
+    except AttributeError:
+        return [float(point[0]), float(point[1])]
 
 
-def _points_equal(p1, p2, tolerance=0.001):
+def points_equal(p1, p2, tolerance=0.001):
     """Check whether two points are effectively identical."""
     return (
         abs(p1[0] - p2[0]) <= tolerance
@@ -24,51 +34,51 @@ def _points_equal(p1, p2, tolerance=0.001):
     )
 
 
-def _append_point(points, point):
-    """
-    Append a point only when it is different from
-    the previous point.
-    """
-    xy = _point_xy(point)
+def append_unique(points, point):
+    """Append point only when different from previous point."""
+    xy = point_xy(point)
 
-    if not points or not _points_equal(points[-1], xy):
+    if not points or not points_equal(points[-1], xy):
         points.append(xy)
 
 
-def _cubic_bezier(p0, p1, p2, p3, steps=CURVE_STEPS):
+def cubic_bezier(p0, p1, p2, p3, steps=CURVE_STEPS):
     """
-    Approximate cubic Bézier curve with a polyline.
+    Approximate cubic Bézier curve using a lightweight polyline.
+    """
 
-    Lower sampling reduces DXF entity size and processing time.
-    """
+    p0 = point_xy(p0)
+    p1 = point_xy(p1)
+    p2 = point_xy(p2)
+    p3 = point_xy(p3)
+
     result = []
 
-    p0 = _point_xy(p0)
-    p1 = _point_xy(p1)
-    p2 = _point_xy(p2)
-    p3 = _point_xy(p3)
-
     for i in range(steps + 1):
+
         t = i / steps
         mt = 1.0 - t
 
+        mt2 = mt * mt
+        t2 = t * t
+
         x = (
-            mt ** 3 * p0[0]
-            + 3 * mt ** 2 * t * p1[0]
-            + 3 * mt * t ** 2 * p2[0]
-            + t ** 3 * p3[0]
+            mt2 * mt * p0[0]
+            + 3.0 * mt2 * t * p1[0]
+            + 3.0 * mt * t2 * p2[0]
+            + t2 * t * p3[0]
         )
 
         y = (
-            mt ** 3 * p0[1]
-            + 3 * mt ** 2 * t * p1[1]
-            + 3 * mt * t ** 2 * p2[1]
-            + t ** 3 * p3[1]
+            mt2 * mt * p0[1]
+            + 3.0 * mt2 * t * p1[1]
+            + 3.0 * mt * t2 * p2[1]
+            + t2 * t * p3[1]
         )
 
         point = [x, y]
 
-        if not result or not _points_equal(
+        if not result or not points_equal(
             result[-1],
             point
         ):
@@ -77,12 +87,15 @@ def _cubic_bezier(p0, p1, p2, p3, steps=CURVE_STEPS):
     return result
 
 
-def _rect_to_polyline(rect):
-    """Convert PDF rectangle to closed polyline."""
-    x0 = float(rect.x0)
-    y0 = float(rect.y0)
-    x1 = float(rect.x1)
-    y1 = float(rect.y1)
+def rectangle_points(rect):
+    """
+    Convert rect-like tuple to closed polyline.
+    """
+
+    x0 = float(rect[0])
+    y0 = float(rect[1])
+    x1 = float(rect[2])
+    y1 = float(rect[3])
 
     return [
         [x0, y0],
@@ -93,15 +106,47 @@ def _rect_to_polyline(rect):
     ]
 
 
-def _quad_to_polyline(quad):
-    """Convert PDF quad to closed polyline."""
+def quad_points(quad):
+    """
+    Convert quad-like tuple/list to closed polyline.
+    """
+
     return [
-        _point_xy(quad.ul),
-        _point_xy(quad.ur),
-        _point_xy(quad.lr),
-        _point_xy(quad.ll),
-        _point_xy(quad.ul),
+        point_xy(quad[0]),
+        point_xy(quad[1]),
+        point_xy(quad[2]),
+        point_xy(quad[3]),
+        point_xy(quad[0]),
     ]
+
+
+def flush_polyline(objects, points):
+    """
+    Add accumulated curve/polyline to objects.
+    """
+
+    if len(points) < 2:
+        return
+
+    cleaned = []
+
+    for point in points:
+
+        if (
+            not cleaned
+            or not points_equal(
+                cleaned[-1],
+                point
+            )
+        ):
+            cleaned.append(point)
+
+    if len(cleaned) >= 2:
+
+        objects.append({
+            "type": "POLYLINE",
+            "points": cleaned,
+        })
 
 
 def extract_pdf_page(pdf_path, page_number):
@@ -109,13 +154,14 @@ def extract_pdf_page(pdf_path, page_number):
     Extract vector geometry and text from one PDF page.
 
     Returns:
-        objects   : list of parsed drawing/text objects
-        page_info : page metadata
+        objects
+        page_info
     """
 
     doc = fitz.open(pdf_path)
 
     try:
+
         if page_number < 1:
             raise ValueError(
                 "Page number must be 1 or greater."
@@ -144,42 +190,21 @@ def extract_pdf_page(pdf_path, page_number):
         }
 
         # ====================================================
-        # VECTOR DRAWINGS
+        # VECTOR GRAPHICS
+        #
+        # IMPORTANT:
+        # get_cdrawings() is used instead of get_drawings()
+        # because it avoids creation of many Python geometry
+        # objects and is significantly faster.
         # ====================================================
 
-        drawings = page.get_drawings()
+        drawings = page.get_cdrawings()
 
         for drawing in drawings:
 
             items = drawing.get("items", [])
 
             current_polyline = []
-
-            def flush_polyline():
-                nonlocal current_polyline
-
-                if len(current_polyline) >= 2:
-
-                    # Remove duplicate closing points
-                    cleaned = []
-
-                    for point in current_polyline:
-                        if (
-                            not cleaned
-                            or not _points_equal(
-                                cleaned[-1],
-                                point
-                            )
-                        ):
-                            cleaned.append(point)
-
-                    if len(cleaned) >= 2:
-                        objects.append({
-                            "type": "POLYLINE",
-                            "points": cleaned,
-                        })
-
-                current_polyline = []
 
             for item in items:
 
@@ -194,12 +219,18 @@ def extract_pdf_page(pdf_path, page_number):
 
                 if item_type == "l":
 
-                    flush_polyline()
+                    flush_polyline(
+                        objects,
+                        current_polyline
+                    )
 
-                    p1 = _point_xy(item[1])
-                    p2 = _point_xy(item[2])
+                    current_polyline = []
 
-                    if not _points_equal(p1, p2):
+                    p1 = point_xy(item[1])
+                    p2 = point_xy(item[2])
+
+                    if not points_equal(p1, p2):
+
                         objects.append({
                             "type": "LINE",
                             "start": p1,
@@ -212,12 +243,15 @@ def extract_pdf_page(pdf_path, page_number):
 
                 elif item_type == "re":
 
-                    flush_polyline()
+                    flush_polyline(
+                        objects,
+                        current_polyline
+                    )
 
-                    rect_item = item[1]
+                    current_polyline = []
 
-                    points = _rect_to_polyline(
-                        rect_item
+                    points = rectangle_points(
+                        item[1]
                     )
 
                     objects.append({
@@ -231,12 +265,15 @@ def extract_pdf_page(pdf_path, page_number):
 
                 elif item_type == "qu":
 
-                    flush_polyline()
+                    flush_polyline(
+                        objects,
+                        current_polyline
+                    )
 
-                    quad = item[1]
+                    current_polyline = []
 
-                    points = _quad_to_polyline(
-                        quad
+                    points = quad_points(
+                        item[1]
                     )
 
                     objects.append({
@@ -245,15 +282,12 @@ def extract_pdf_page(pdf_path, page_number):
                     })
 
                 # --------------------------------------------
-                # CUBIC BÉZIER CURVE
+                # CUBIC BÉZIER
                 # --------------------------------------------
 
                 elif item_type == "c":
 
-                    # PyMuPDF cubic item:
-                    # ('c', p1, p2, p3, p4)
-
-                    curve_points = _cubic_bezier(
+                    curve = cubic_bezier(
                         item[1],
                         item[2],
                         item[3],
@@ -261,13 +295,13 @@ def extract_pdf_page(pdf_path, page_number):
                         CURVE_STEPS,
                     )
 
-                    for point in curve_points:
+                    for point in curve:
 
                         if (
                             not current_polyline
-                            or not _points_equal(
+                            or not points_equal(
                                 current_polyline[-1],
-                                point,
+                                point
                             )
                         ):
                             current_polyline.append(
@@ -275,30 +309,51 @@ def extract_pdf_page(pdf_path, page_number):
                             )
 
                 # --------------------------------------------
-                # UNKNOWN DRAWING TYPE
+                # UNKNOWN
                 # --------------------------------------------
 
                 else:
 
-                    flush_polyline()
+                    flush_polyline(
+                        objects,
+                        current_polyline
+                    )
 
-            # Flush remaining curve/polyline
-            flush_polyline()
+                    current_polyline = []
+
+            # Flush remaining curve
+            flush_polyline(
+                objects,
+                current_polyline
+            )
 
         # ====================================================
         # TEXT
         # ====================================================
 
-        text_dict = page.get_text("dict")
+        text_dict = page.get_text(
+            "dict",
+            flags=11
+        )
 
-        for block in text_dict.get("blocks", []):
+        for block in text_dict.get(
+            "blocks",
+            []
+        ):
 
+            # Ignore images / non-text blocks
             if block.get("type") != 0:
                 continue
 
-            for line in block.get("lines", []):
+            for line in block.get(
+                "lines",
+                []
+            ):
 
-                for span in line.get("spans", []):
+                for span in line.get(
+                    "spans",
+                    []
+                ):
 
                     text = span.get(
                         "text",
@@ -318,7 +373,7 @@ def extract_pdf_page(pdf_path, page_number):
                     x = float(bbox[0])
                     y = float(bbox[3])
 
-                    font_size = float(
+                    height = float(
                         span.get(
                             "size",
                             10.0
@@ -329,10 +384,12 @@ def extract_pdf_page(pdf_path, page_number):
                         "type": "TEXT",
                         "text": text,
                         "position": [x, y],
-                        "height": font_size,
+                        "height": height,
                     })
 
         return objects, page_info
 
     finally:
+
         doc.close()
+PY
